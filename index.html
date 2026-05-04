@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Headless 360 — Service Demo</title>
+<title>Headless 360 — Three Surfaces, One Engine</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -34,6 +34,20 @@
     --hl-text: #0F172A;
     --hl-mute: #64748B;
     --hl-success: #166534;
+    /* Self-service portal palette — customer-facing brand */
+    --portal-bg: #FFFFFF;
+    --portal-accent: #1A1A1A;
+    --portal-soft: #F7F5F0;
+    --portal-warning: #B91C1C;
+    /* Specialist workspace palette — pro tool, denser */
+    --spec-bg: #0F1419;
+    --spec-panel: #1A1F26;
+    --spec-border: #2A3038;
+    --spec-text: #E5E7EB;
+    --spec-mute: #9CA3AF;
+    --spec-accent: #F59E0B;
+    --spec-success: #10B981;
+    --spec-danger: #EF4444;
   }
   body {
     font-family: 'Inter', system-ui, sans-serif;
@@ -72,8 +86,6 @@
   }
   .seam-badge.ootb { background: rgba(91, 114, 149, 0.95); color: white; }
   .seam-badge.built { background: var(--coral); color: white; }
-  .seam-on .seam-target { box-shadow: 0 0 0 2px rgba(91, 114, 149, 0.6); border-radius: 2px; }
-  .seam-on .seam-target.built { box-shadow: 0 0 0 2px var(--coral); }
 
   .fade-in { animation: fadeIn 600ms ease-out forwards; opacity: 0; }
   @keyframes fadeIn { to { opacity: 1; } }
@@ -111,6 +123,21 @@
 
   .scenario-card { transition: all 200ms ease; }
   .scenario-card:hover { transform: translateY(-2px); }
+
+  /* Self-service portal styling */
+  .portal-bg { background: var(--portal-bg); }
+  .portal-soft { background: var(--portal-soft); }
+  .portal-accent { color: var(--portal-accent); }
+
+  /* Specialist workspace styling */
+  .spec-bg { background: var(--spec-bg); color: var(--spec-text); }
+  .spec-panel { background: var(--spec-panel); border: 1px solid var(--spec-border); }
+  .spec-text { color: var(--spec-text); }
+  .spec-mute { color: var(--spec-mute); }
+
+  /* OOTB legacy portal — looks more like generic public website */
+  .legacy-portal-bg { background: #f8f9fa; }
+  .legacy-portal-header { background: #1f2937; color: #f8f9fa; }
 </style>
 </head>
 <body>
@@ -120,11 +147,15 @@
 const { useState } = React;
 
 // ============================================================
-// THREE SCENARIOS
+// THREE SCENARIOS — three different SURFACES, one engine
 // ============================================================
 const SCENARIOS = {
   maria: {
     id: "maria",
+    surfaceType: "agent_assist",
+    surfaceLabel: "Service agent assist",
+    surfaceDescription: "Internal · AI-orchestrated assist for a frontline agent on a live call",
+    audience: "Frontline service agent",
     customerName: "Maria Chen",
     customerType: "Residential · Fibre Premium 1000 · 6 yrs 3 mo",
     location: "St Kilda VIC",
@@ -164,7 +195,6 @@ const SCENARIOS = {
       { label: "Service credit $50 (within authority)", status: "ok" },
       { label: "Transfer-block flag (within authority)", status: "ok" },
     ],
-    handoverNeeded: false,
     summaryImpact: {
       timeFromCallToResolution: "2 minutes",
       decisionsAutomated: 3,
@@ -178,182 +208,170 @@ const SCENARIOS = {
         "→ classifier: customer.history.repeat_caller = TRUE (3 calls / 7 days)",
         "→ classifier: sentiment.trajectory = negative_escalating",
         "→ classifier: service.area.has_active_incident = TRUE (St Kilda)",
-        "// 4 features above threshold for 'high-stakes-cognitive' route",
+        "// audience: agent_assist — internal, time-pressured, action-oriented",
       ]},
       { stage: 2, lines: [
+        "→ surface_composer.audience = agent_assist",
         "→ field_orchestration.score(30 fields, case_context)",
         "→ surface[0]: outage_history (correlation: 0.91)",
         "→ surface[1]: unauthorised_charge (correlation: 0.94)",
         "→ surface[2]: transfer_history (correlation: 0.87)",
-        "→ collapse: 27 standard fields (correlation < 0.4)",
-        "→ knowledge.fetch(query=case_context, n=1)",
-        "→ KB-1124 selected (94% match)",
+        "→ knowledge.fetch → KB-1124 (94% match)",
       ]},
       { stage: 3, lines: [
         "→ response.generate(template=accountable, signal=cumulative_frustration)",
         "→ response.tone = measured | accountable | brief",
-        "→ response.includes_acknowledgement = TRUE",
-        "→ response.length_target = short (audience: time-pressured)",
-        "→ check_authority(refund=40, credit=50) → both authorised",
-        "→ render: response_card + 3 pre-authorised actions",
+        "→ check_authority(refund=40, credit=50) → both OK",
+        "→ render: agent_assist_panel + 3 pre-authorised actions",
       ]},
     ],
   },
 
   david: {
     id: "david",
+    surfaceType: "self_service_portal",
+    surfaceLabel: "Customer self-service portal",
+    surfaceDescription: "External · composable customer-facing surface, no human agent required",
+    audience: "Customer (David Patel)",
     customerName: "David Patel",
     customerType: "Small Business · 4 lines · 11 mo · Bayside Cafe Pty Ltd",
     location: "Brighton VIC",
-    callsThisWeekLabel: "First call · 4:42pm",
-    badge: "Time-pressured · calm",
+    callsThisWeekLabel: "First contact · 4:42pm",
+    badge: "Time-sensitive · self-serve eligible",
     badgeColor: "amber",
-    headline: "Payment failure blocking service · close-of-business deadline",
-    summary: "Small business owner. His monthly payment failed this morning due to a bank transition (he switched business banks 3 days ago). His point-of-sale system goes into limited mode at 5pm if not resolved. Calm but visibly under time pressure. Needs to authorise a different payment method before close of business.",
-    caseNumber: "00084340",
-    sentimentValue: 35,
-    sentimentLabel: "Calm · time-pressured",
-    sentimentNote: "Tone is professional but cadence indicates urgency. Polite, direct.",
-    classification: ["payment.failure", "service.degradation.scheduled", "customer.business_critical", "sentiment.urgent_calm"],
-    transcript: [
-      { speaker: "Customer", time: "0:05", text: "Hi, this is David Patel from Bayside Cafe. I got an email saying my payment failed." },
-      { speaker: "Customer", time: "0:14", text: "I switched business banks last week. The direct debit must have bounced." },
-      { speaker: "Customer", time: "0:22", text: "I just need to fix this before 5pm — my POS goes into limited mode if I don't, and we have a function tonight." },
-      { speaker: "Customer", time: "0:35", text: "I've got my new account details ready. Can we get this sorted quickly?" },
-    ],
-    surfacedFields: [
-      { label: "Payment failure reason", value: "Direct debit bounced — account closed", note: "Bank: customer switched banks 3 days ago" },
-      { label: "Service degradation timer", value: "16 minutes until limited mode", note: "Auto-trigger at 17:00 unless resolved. Affects POS, online ordering." },
-      { label: "Customer impact context", value: "Function booking tonight", note: "Mentioned in transcript — driving urgency" },
-    ],
-    knowledge: {
-      id: "KB-2087",
-      title: "Direct debit failure — bank change procedure",
-      relevance: "97% match",
-      excerpt: "When a customer reports a direct debit failure due to a bank change, agents may update payment details and waive the failed-payment fee in a single transaction. Service degradation timers may be paused for up to 24 hours during reauthorisation.",
+    headline: "Payment failure · resolved without a call",
+    summary: "Small business owner. His monthly payment failed this morning due to a bank transition (he switched business banks 3 days ago). His point-of-sale system goes into limited mode at 5pm if not resolved. He logs into the customer portal at 4:42pm to fix it himself — and the portal is composed for exactly this moment.",
+    caseNumber: "—",
+    classification: ["payment.failure", "service.degradation.scheduled", "customer.business_critical", "channel.self_service"],
+    portalSession: {
+      loginTime: "4:42pm",
+      device: "Mobile · iPhone Safari",
+      tenure: "11 months",
+      segment: "Small business",
+      lastInteraction: "Bill paid via portal · 32 days ago",
     },
-    recommendedAction: "Pause service degradation timer. Update payment details. Waive failure fee. Confirm next debit date.",
-    actionAuthority: "All within agent authority. Total time to resolution: ~3 minutes.",
-    response: "David, no problem at all — bank changes do this all the time. I can pause the 5pm timer right now while we update your details, so the function tonight isn't affected. I'll also waive the failed-payment fee since this was a direct debit issue, not a payment refusal. Can I take your new BSB and account number?",
-    responseTone: "Tone: warm, brisk, low-friction. Tuned to time pressure with calm cadence.",
-    actions: [
-      { label: "Pause degradation timer 24h", status: "ok" },
-      { label: "Update payment method", status: "ok" },
-      { label: "Waive failure fee ($15)", status: "ok" },
+    portalContext: {
+      headline: "We noticed your payment didn't go through.",
+      subheadline: "We can sort this in 90 seconds. No need to call.",
+      detectedIssue: "Direct debit bounced — bank account closed",
+      detectedCause: "You updated your business bank details 3 days ago. The old account may have closed before the debit ran.",
+      timer: "Limited mode kicks in at 5:00pm — you have 17 minutes",
+    },
+    portalActions: [
+      { label: "Update payment method", primary: true, eta: "90 seconds" },
+      { label: "Pause the 5pm timer while I sort this", note: "Auto-applied" },
+      { label: "Waive the failed-payment fee", note: "Eligible: bank-change scenario" },
     ],
-    handoverNeeded: false,
+    portalAlternatives: [
+      { label: "Talk to someone instead", note: "Estimated wait: 4 minutes" },
+      { label: "Get a callback when convenient", note: "We'll call within 15 minutes" },
+    ],
     summaryImpact: {
-      timeFromCallToResolution: "3 minutes",
-      decisionsAutomated: 4,
-      decisionsAgent: 1,
-      ootbBaseline: "agent would have escalated to billing team; service likely to degrade before resolution",
+      timeFromCallToResolution: "90 seconds (no call)",
+      decisionsAutomated: 5,
+      decisionsAgent: 0,
+      ootbBaseline: "customer would have called, waited, been transferred to billing, and likely missed the 5pm deadline",
     },
     reasoning: [
       { stage: 1, lines: [
-        "→ classifier: case.type = payment.failure",
-        "→ classifier: case.subtype = direct_debit_bounce",
-        "→ classifier: customer.segment = small_business",
+        "→ classifier: session.user = AC-4471892 (David Patel, Bayside Cafe)",
+        "→ classifier: session.context = login_at_4:42pm",
         "→ classifier: account.recent_change = bank_switch (3d ago)",
-        "→ classifier: sentiment.trajectory = calm_urgent",
-        "→ classifier: time.until_service_degradation = 16 minutes",
-        "// time.pressure flag → boost field weights for 'time-to-resolve' fields",
+        "→ classifier: account.has_failed_payment = TRUE (today, 09:14)",
+        "→ classifier: service.degradation.scheduled = 17 min from now",
+        "// audience: self_service_portal — external, customer must lead, no jargon",
       ]},
       { stage: 2, lines: [
-        "→ field_orchestration.score(40 fields, case_context)",
-        "→ surface[0]: payment_failure_reason (correlation: 0.96)",
-        "→ surface[1]: degradation_timer (correlation: 0.98 + time_pressure_boost)",
-        "→ surface[2]: customer_impact_signal (parsed from transcript: 'function tonight')",
-        "→ collapse: 37 standard fields",
-        "→ knowledge.fetch(query=case_context + recent_bank_change)",
-        "→ KB-2087 selected (97% match)",
+        "→ surface_composer.audience = self_service_portal",
+        "→ portal.compose(lead_with=detected_issue, hide=irrelevant_navigation)",
+        "→ portal.headline = problem_acknowledged_in_plain_language",
+        "→ portal.actions = ranked_by_likelihood_of_solving",
+        "→ portal.escape_hatch = always_visible (call/callback)",
+        "→ portal.timer = visible_but_not_alarming",
       ]},
       { stage: 3, lines: [
-        "→ response.generate(template=warm_brisk, signal=time_pressure)",
-        "→ response.tone = warm | direct | low-friction",
-        "→ response.length_target = very_short (under 60 words)",
-        "→ response.lead_with = solution_not_apology",
-        "→ check_authority(pause_timer, update_payment, waive_fee) → all OK",
-        "→ render: response_card + 3 pre-authorised actions",
+        "→ self_service.eligibility(refund_failure_fee, pause_timer) → both OK",
+        "→ self_service.guided_flow(update_payment_method)",
+        "→ if_completed(): no_call_required, log_outcome",
+        "→ if_abandoned(>2min): trigger_proactive_outreach",
+        "→ render: customer_portal_composed_for_this_moment",
       ]},
     ],
   },
 
   aisha: {
     id: "aisha",
+    surfaceType: "specialist_workspace",
+    surfaceLabel: "Retention specialist workspace",
+    surfaceDescription: "Internal · authority-rich tool for high-stakes decisions, post-handover from agent assist",
+    audience: "Retention specialist (post-handover)",
     customerName: "Aisha Williams",
     customerType: "Residential · Fibre 250 + Mobile 60GB · 8 yrs 1 mo",
     location: "Footscray VIC",
-    callsThisWeekLabel: "5th call · 14 days",
-    badge: "Cancellation risk · escalating",
+    callsThisWeekLabel: "5th call · 14 days · escalated to specialist",
+    badge: "Cancellation risk · specialist required",
     badgeColor: "red",
-    headline: "Long-standing customer threatening to cancel · retention threshold exceeded",
-    summary: "8-year customer. Has called 5 times in 14 days about a recurring outage in her area. Last two calls ended without resolution. Has now mentioned a competitor and asked to cancel. Sentiment indicates this is past retention-by-script — needs senior agent or retention specialist with offer authority.",
+    headline: "Cancellation by long-tenure customer · authority-rich tooling required",
+    summary: "8-year customer. Has called 5 times in 14 days about a recurring outage. Front-line agent has correctly identified this as above their authority and routed to retention specialist. The specialist surface gives Sandra (retention) tools the agent didn't have: lifetime value, comparable-customer outcomes, offer modelling, full authority matrix.",
     caseNumber: "00084401",
-    sentimentValue: 92,
-    sentimentLabel: "Cancellation intent · firm",
-    sentimentNote: "Customer has shifted from frustration to detached/decided. Resolution language no longer effective.",
-    classification: ["customer.cancellation_intent", "service.outage.recurring", "customer.high_value", "customer.retention.threshold_exceeded", "sentiment.decided_cool"],
+    classification: ["customer.cancellation_intent", "customer.high_value", "customer.tenure.long", "handover.from_agent_assist", "authority.specialist_required"],
+    specialistContext: {
+      handoverFrom: "Front-line agent · routed via Headless engine",
+      handoverReason: "Cancellation request from 8.1-year customer · agent authority insufficient",
+      ltv: "$12,840",
+      replacementCAC: "$340",
+      tenureBucket: "Top decile (8.1 years)",
+      churnRiskScore: "0.91 (high)",
+      saveAttemptHistory: "0 prior save attempts (this is the moment)",
+    },
     transcript: [
       { speaker: "Customer", time: "0:08", text: "I'd like to cancel my service please." },
       { speaker: "Customer", time: "0:14", text: "I've been with you for eight years. I've called five times in the last two weeks." },
       { speaker: "Customer", time: "0:24", text: "Each time someone tells me it'll be fixed. It hasn't been." },
       { speaker: "Customer", time: "0:36", text: "I've signed up with Aussie Broadband. They can install on Thursday. I just need to close this account." },
     ],
-    surfacedFields: [
-      { label: "Customer lifetime value", value: "$12,840 over 8.1 years", note: "Top decile retention priority. Replacement cost-of-acquisition: $340." },
-      { label: "Outage pattern (Footscray)", value: "Recurring · every 4-6 weeks", note: "Network team has aware-but-unscheduled work order. No ETA committed to customer." },
-      { label: "Retention authority required", value: "$200+ offer or service swap", note: "Agent authority: $50. Senior agent: $200. Retention specialist: full." },
+    comparableOutcomes: [
+      { label: "Customers with similar profile, last 90 days", value: "23 cancellation intents" },
+      { label: "Successfully retained with offer ≥ $200", value: "14 of 23 (61%)" },
+      { label: "Successfully retained with offer < $200", value: "1 of 9 (11%)" },
+      { label: "Retained via service swap (not financial)", value: "9 of 12 attempts (75%)" },
     ],
-    knowledge: {
-      id: "KB-3301",
-      title: "Cancellation requests — high-value customer protocol",
-      relevance: "99% match",
-      excerpt: "When a customer with 5+ years tenure requests cancellation following service issues, the case must be escalated to a retention specialist with full offer authority. Do not attempt resolution-by-script. Acknowledge intent to cancel; do not contest it.",
-    },
-    recommendedAction: "Acknowledge cancellation intent. Do not contest. Hand to retention specialist with full context. Senior-level offer authority required.",
-    actionAuthority: "OUTSIDE agent authority. Handover required.",
-    response: "Aisha, I can hear you, and I'm not going to try to talk you out of this on this call. After eight years, you deserve to speak to someone with the authority to actually do something — not someone reading from a script. I'm going to transfer you to our retention team right now. They'll have your full history and can make decisions I can't. Is that okay?",
-    responseTone: "Tone: respectful, no resolution attempt, no false urgency. Tuned to cancellation-intent register.",
-    actions: [
-      { label: "Refund / credit (within authority)", status: "blocked" },
-      { label: "Service swap to higher tier", status: "blocked" },
-      { label: "Hand to retention specialist", status: "ok" },
+    offerOptions: [
+      { id: "swap", label: "Service swap to Fibre 1000", retention: 75, cost: "Net positive — upgrade", recommended: true },
+      { id: "credit", label: "$200 credit + 6 mo of current plan", retention: 61, cost: "$320 retention cost" },
+      { id: "tier", label: "Tier upgrade + priority queue 12mo", retention: 68, cost: "Net positive — upgrade" },
+      { id: "honourable", label: "Honourable cancel + churn analysis", retention: 0, cost: "$0 (acknowledged loss)" },
     ],
-    handoverNeeded: true,
-    handoverDestination: "Retention Specialist · Sandra K. (available)",
     summaryImpact: {
-      timeFromCallToResolution: "Handover at 1 min · resolution by retention team",
-      decisionsAutomated: 2,
+      timeFromCallToResolution: "Specialist takes ownership · resolves with offer authority",
+      decisionsAutomated: 4,
       decisionsAgent: 0,
       decisionsHandover: 1,
-      ootbBaseline: "agent would have read retention script, customer would have hung up",
+      ootbBaseline: "agent would have read retention script. customer would have cancelled.",
     },
     reasoning: [
       { stage: 1, lines: [
         "→ classifier: case.type = cancellation_request",
-        "→ classifier: customer.tenure = 8.1 years (high)",
+        "→ classifier: customer.tenure = 8.1y (high)",
         "→ classifier: customer.lifetime_value = $12,840",
-        "→ classifier: customer.cancellation_signals = explicit + competitor_named",
-        "→ classifier: sentiment.trajectory = decided_cool (NOT escalating)",
+        "→ classifier: handover.source = agent_assist (case 00084401)",
         "→ classifier: prior_resolution_attempts = 4 unsuccessful",
-        "// retention.threshold = EXCEEDED → handover route",
+        "// audience: specialist_workspace — internal, high authority, decision-rich",
       ]},
       { stage: 2, lines: [
-        "→ field_orchestration.score(40 fields, case_context)",
-        "→ surface[0]: customer_lifetime_value (correlation: 0.94)",
-        "→ surface[1]: outage_pattern_history (correlation: 0.91)",
-        "→ surface[2]: required_retention_authority (correlation: 0.99)",
-        "→ collapse: 37 standard fields",
-        "→ knowledge.fetch(query=cancellation + high_value)",
-        "→ KB-3301 selected (99% match) — protocol: do not contest",
+        "→ surface_composer.audience = specialist_workspace",
+        "→ workspace.compose(authority_level=full, density=high)",
+        "→ surface[0]: ltv_and_cac (correlation: 0.96)",
+        "→ surface[1]: comparable_outcomes (n=23, 90d window)",
+        "→ surface[2]: offer_options_modelled (4 candidates)",
+        "→ workspace.escape_hatch = honourable_cancel_always_visible",
       ]},
       { stage: 3, lines: [
-        "→ response.generate(template=respectful_handover, signal=decided_cool)",
-        "→ response.tone = respectful | no_resolution_attempt | acknowledging",
-        "→ response.must_not_contain = ['can I offer you', 'have you tried', 'let me see if']",
-        "→ check_authority(retention_offer >= 200) → BLOCKED for agent",
-        "→ flag: handover_required = TRUE",
-        "→ render: handover_card + retention_specialist_routing",
+        "→ offer_modeller.score(retention_probability, cost_of_offer)",
+        "→ recommend: service_swap (highest retention, net positive cost)",
+        "→ flag: honourable_cancel acceptable if customer rejects offers",
+        "→ check_authority(specialist) → ALL options within authority",
+        "→ render: specialist_workspace + offer_composer",
       ]},
     ],
   },
@@ -377,173 +395,7 @@ const SeamBadge = ({ kind, label, position = "top-right" }) => {
 };
 
 // ============================================================
-// OOTB SERVICE CLOUD VIEW
-// ============================================================
-const OOTBView = ({ seamOn, scenario }) => {
-  const s = scenario;
-  const fields = [
-    ["Case Number", s.caseNumber],
-    ["Subject", s.headline],
-    ["Description", s.summary.substring(0, 60) + "..."],
-    ["Type", s.id === "maria" ? "Billing" : s.id === "david" ? "Billing" : "Cancellation"],
-    ["Sub-Type", "—"],
-    ["Reason", "—"],
-    ["Status", "New"],
-    ["Priority", s.id === "aisha" ? "Critical" : "High"],
-    ["Severity", "—"],
-    ["SLA Status", "Within SLA"],
-    ["Channel", "Phone"],
-    ["Origin", "Phone"],
-    ["Account Name", s.customerName],
-    ["Account Number", "AC-" + (4471823 + (s.id.charCodeAt(0) * 137))],
-    ["Contact Name", s.customerName],
-    ["Contact Phone", "+61 412 xxx xxx"],
-    ["Contact Email", s.customerName.toLowerCase().replace(" ", ".") + "@email.com"],
-    ["Product", s.id === "david" ? "Business 4-Line Bundle" : "Fibre Premium"],
-    ["Product SKU", s.id === "david" ? "BIZ-4L" : "FP1000-RES"],
-    ["Service Address", s.location],
-    ["Created Date", "Today, 09:14 AM"],
-    ["Created By", "IVR System"],
-    ["Last Modified", "2 min ago"],
-    ["Last Modified By", "Sandra Kowalski"],
-    ["Owner", "You"],
-    ["Queue", "—"],
-    ["Escalated", "No"],
-    ["Internal Comments", "—"],
-    ["External Comments", "—"],
-    ["Resolution Code", "—"],
-    ["Closed Date", "—"],
-  ];
-
-  return (
-    <div className="sf-bg" style={{ minHeight: "100%", fontSize: "13px" }}>
-      <div className="sf-panel border-b sf-border flex items-center px-4 py-2" style={{ height: 44 }}>
-        <div className="font-bold text-base sf-header">Service Console</div>
-        <div className="ml-6 flex gap-1 text-xs sf-text-mute">
-          <span className="px-2 py-1 sf-bg rounded">Cases</span>
-          <span className="px-2 py-1 sf-bg rounded">Accounts</span>
-          <span className="px-2 py-1 sf-bg rounded">Contacts</span>
-          <span className="px-2 py-1 sf-bg rounded">Knowledge</span>
-        </div>
-        <div className="ml-auto flex gap-3 items-center text-xs sf-text-mute">
-          <span>🔍 Search</span>
-          <span>⚙</span>
-          <span className="w-7 h-7 rounded-full bg-gray-300"></span>
-        </div>
-      </div>
-
-      <div className="sf-panel border-b sf-border flex items-center px-4" style={{ height: 36 }}>
-        <span className="text-xs sf-text-mute mr-3">📁</span>
-        <div className="flex gap-0">
-          <div className="px-3 py-2 border-b-2 border-blue-500 text-xs font-medium sf-text">
-            Case {s.caseNumber} ×
-          </div>
-          <div className="px-3 py-2 text-xs sf-text-mute">{s.customerName} ×</div>
-        </div>
-      </div>
-
-      <div className="sf-panel border-b sf-border px-6 py-4 relative">
-        {seamOn && <SeamBadge kind="ootb" label="OOTB · Case Object" />}
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center text-lg">📋</div>
-          <div className="flex-1">
-            <div className="text-xs sf-text-mute uppercase tracking-wider">Case</div>
-            <div className="text-xl font-semibold sf-header">{s.caseNumber}</div>
-            <div className="text-xs sf-text-mute mt-1">{s.headline}</div>
-          </div>
-          <div className="grid grid-cols-4 gap-x-8 gap-y-1 text-xs">
-            <div><div className="sf-text-mute">Status</div><div className="sf-text font-medium">New</div></div>
-            <div><div className="sf-text-mute">Priority</div><div className="sf-text font-medium">{s.id === "aisha" ? "Critical" : "High"}</div></div>
-            <div><div className="sf-text-mute">Origin</div><div className="sf-text font-medium">Phone</div></div>
-            <div><div className="sf-text-mute">Owner</div><div className="sf-link">You</div></div>
-            <div><div className="sf-text-mute">Account</div><div className="sf-link">{s.customerName}</div></div>
-            <div><div className="sf-text-mute">Contact</div><div className="sf-link">{s.customerName}</div></div>
-            <div><div className="sf-text-mute">Created</div><div className="sf-text">Today, 09:14</div></div>
-            <div><div className="sf-text-mute">Last Modified</div><div className="sf-text">2 min ago</div></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="sf-panel border-b sf-border px-6 py-2 flex gap-2 text-xs">
-        <button className="px-3 py-1.5 border sf-border rounded sf-text hover:bg-gray-50">Edit</button>
-        <button className="px-3 py-1.5 border sf-border rounded sf-text hover:bg-gray-50">Delete</button>
-        <button className="px-3 py-1.5 border sf-border rounded sf-text hover:bg-gray-50">Clone</button>
-        <button className="px-3 py-1.5 border sf-border rounded sf-text hover:bg-gray-50">Change Owner</button>
-        <button className="px-3 py-1.5 border sf-border rounded sf-text hover:bg-gray-50">Close Case</button>
-      </div>
-
-      <div className="grid grid-cols-12 gap-0">
-        <div className="col-span-5 sf-panel border-r sf-border p-4 relative">
-          {seamOn && <SeamBadge kind="ootb" label="OOTB · Standard Fields" />}
-          <div className="text-xs uppercase tracking-wider sf-text-mute mb-3 font-medium">Details</div>
-          <div className="space-y-3 text-xs">
-            {fields.map(([label, value], i) => (
-              <div key={i} className="grid grid-cols-2 gap-2">
-                <div className="sf-text-mute">{label}</div>
-                <div className="sf-text">{value || <span className="sf-text-dim">—</span>}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="col-span-4 sf-panel border-r sf-border p-4">
-          <div className="flex gap-4 border-b sf-border -mt-4 -mx-4 px-4 mb-3 text-xs">
-            {["Activity", "Notes", "Related", "Files", "History"].map((tab, i) => (
-              <div key={i} className={`py-3 px-1 ${i === 0 ? "border-b-2 border-blue-500 sf-text font-medium" : "sf-text-mute"}`}>
-                {tab}
-              </div>
-            ))}
-          </div>
-          <div className="text-xs sf-text-mute mb-2">Recent activity on this case</div>
-          <div className="space-y-3 text-xs">
-            <div className="border-l-2 border-blue-300 pl-3">
-              <div className="sf-text font-medium">Case created</div>
-              <div className="sf-text-mute">Today, 09:14 AM · IVR System</div>
-            </div>
-            <div className="border-l-2 sf-border pl-3">
-              <div className="sf-text font-medium">Routed to your queue</div>
-              <div className="sf-text-mute">Today, 09:34 AM · Auto-route</div>
-            </div>
-          </div>
-          <div className="mt-6 border-t sf-border pt-4">
-            <div className="text-xs sf-text-mute mb-2">Quick reply</div>
-            <textarea className="w-full border sf-border rounded p-2 text-xs" rows={5} placeholder="Type your reply..." />
-            <div className="flex gap-2 mt-2">
-              <button className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Send</button>
-              <button className="px-3 py-1.5 border sf-border rounded sf-text text-xs">Save Draft</button>
-              <button className="px-3 py-1.5 border sf-border rounded sf-text text-xs">Insert Template</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-span-3 sf-bg p-4 space-y-4 relative">
-          <div className="sf-panel border sf-border rounded p-3">
-            <div className="text-xs uppercase tracking-wider sf-text-mute mb-2 font-medium">Related Contact</div>
-            <div className="text-xs sf-link font-medium">{s.customerName}</div>
-            <div className="text-xs sf-text-mute">+61 412 xxx xxx</div>
-          </div>
-          <div className="sf-panel border sf-border rounded p-3">
-            <div className="text-xs uppercase tracking-wider sf-text-mute mb-2 font-medium">Knowledge Search</div>
-            <input type="text" className="w-full border sf-border rounded px-2 py-1 text-xs" placeholder="Search articles..." />
-            <div className="text-xs sf-text-dim italic mt-2">Type to search the knowledge base</div>
-          </div>
-          <div className="sf-panel border sf-border rounded p-3">
-            <div className="text-xs uppercase tracking-wider sf-text-mute mb-2 font-medium">Recent Cases</div>
-            <div className="text-xs sf-link">Show all</div>
-          </div>
-          <div className="sf-panel border sf-border rounded p-3">
-            <div className="text-xs uppercase tracking-wider sf-text-mute mb-2 font-medium">Account Details</div>
-            <div className="text-xs sf-text-mute">Type</div>
-            <div className="text-xs sf-text">{s.customerType}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================
-// REASONING TRACE
+// REASONING TRACE — shared across all three surfaces
 // ============================================================
 const ReasoningTrace = ({ scenario, stage }) => {
   const allLines = [];
@@ -556,7 +408,7 @@ const ReasoningTrace = ({ scenario, stage }) => {
   }
 
   return (
-    <div className="rounded-lg p-4 sticky top-0" style={{ background: "#0F172A", color: "#94A3B8" }}>
+    <div className="rounded-lg p-4" style={{ background: "#0F172A", color: "#94A3B8" }}>
       <div className="flex items-center gap-2 mb-3">
         <div className="reasoning-line" style={{ color: "var(--coral)" }}>// reasoning_trace</div>
         <div className="ml-auto reasoning-line" style={{ color: "#475569" }}>headless engine</div>
@@ -579,29 +431,215 @@ const ReasoningTrace = ({ scenario, stage }) => {
 };
 
 // ============================================================
-// HEADLESS VIEW (click-controlled stages)
+// OOTB EXTERNAL APPS — agent-side only (used in agent assist OOTB)
 // ============================================================
-const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
+const getExternalApps = (s) => {
+  return [
+    { id: "billing", name: "Billing", icon: "💳", note: "$40 charge details here", urgency: "needed" },
+    { id: "network", name: "Network Ops", icon: "📡", note: "St Kilda exchange status", urgency: "needed" },
+    { id: "engagement", name: "Customer Engagement", icon: "📞", note: "3-call pattern, transfers", urgency: "needed" },
+    { id: "credits", name: "Credit Authorisation", icon: "🎫", note: "Refund authority lookup", urgency: "needed" },
+  ];
+};
+
+// ============================================================
+// OOTB AGENT ASSIST VIEW — modern Service Cloud + Agentforce + swivel chair
+// ============================================================
+const AgentAssistOOTBView = ({ seamOn, scenario }) => {
+  const s = scenario;
+  const externalApps = getExternalApps(s);
+  const agentforce = {
+    summary: "Customer reports unauthorised $40 charge and ongoing service issues. Third recent contact.",
+    sentiment: "Negative",
+    suggestedReplies: [
+      "I'm sorry for the inconvenience. Let me look into your bill...",
+      "I understand. Can you confirm the charge you're referring to?",
+      "Let me check your service status first...",
+    ],
+    nextSteps: [
+      "Check billing for charge details",
+      "Verify service status in Network Ops",
+      "Review prior interaction history",
+    ],
+  };
+
+  return (
+    <div className="sf-bg" style={{ minHeight: "100%", fontSize: "13px" }}>
+      {/* Browser-tab strip */}
+      <div style={{ background: "#2a2c34", borderBottom: "1px solid #1a1c24" }} className="px-3 py-1.5 flex items-center gap-1 relative">
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · 5 separate apps" position="top-right" />}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-t text-xs" style={{ background: "white", color: "#181818" }}>
+          <span>📋</span>
+          <span className="font-medium">Service Cloud — {s.customerName}</span>
+        </div>
+        {externalApps.map((app, i) => (
+          <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-t text-xs" style={{ background: "#3d404a", color: "#a0a3ae" }}>
+            <span>{app.icon}</span>
+            <span>{app.name}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Service Cloud header */}
+      <div className="sf-panel border-b sf-border flex items-center px-4 py-2" style={{ height: 44 }}>
+        <div className="font-bold text-base sf-header">Service Console</div>
+        <div className="ml-6 flex gap-1 text-xs sf-text-mute">
+          <span className="px-2 py-1 sf-bg rounded">Cases</span>
+          <span className="px-2 py-1 sf-bg rounded">Accounts</span>
+          <span className="px-2 py-1 sf-bg rounded">Knowledge</span>
+        </div>
+      </div>
+
+      <div className="sf-panel border-b sf-border px-6 py-4 relative">
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · Case Object" />}
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded bg-blue-100 flex items-center justify-center text-lg">📋</div>
+          <div className="flex-1">
+            <div className="text-xs sf-text-mute uppercase tracking-wider">Case</div>
+            <div className="text-xl font-semibold sf-header">{s.caseNumber}</div>
+            <div className="text-xs sf-text-mute mt-1">{s.headline}</div>
+          </div>
+          <div className="grid grid-cols-3 gap-x-8 gap-y-1 text-xs">
+            <div><div className="sf-text-mute">Status</div><div className="sf-text font-medium">New</div></div>
+            <div><div className="sf-text-mute">Priority</div><div className="sf-text font-medium">High</div></div>
+            <div><div className="sf-text-mute">Owner</div><div className="sf-link">You</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-0">
+        {/* Case detail */}
+        <div className="col-span-4 sf-panel border-r sf-border p-4 relative">
+          {seamOn && <SeamBadge kind="ootb" label="OOTB · Case Detail" position="top-right" />}
+          <div className="text-xs uppercase tracking-wider sf-text-mute mb-3 font-medium">Details</div>
+          <div className="space-y-3 text-xs">
+            {[
+              ["Subject", s.headline],
+              ["Type", "Billing"],
+              ["Channel", "Phone"],
+              ["Account", s.customerName],
+              ["Phone", "+61 412 xxx xxx"],
+              ["Email", "maria.chen@email.com"],
+              ["Product", "Fibre Premium"],
+              ["Address", s.location],
+              ["Created", "Today, 09:14"],
+              ["Resolution Code", "—"],
+            ].map(([label, value], i) => (
+              <div key={i} className="grid grid-cols-2 gap-2">
+                <div className="sf-text-mute">{label}</div>
+                <div className="sf-text">{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 pt-3 border-t sf-border">
+            <div className="text-xs sf-text-mute mb-1.5 font-medium uppercase tracking-wider">Recent cases</div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between"><span className="sf-link">00084189</span><span className="sf-text-mute">9d ago</span></div>
+              <div className="flex justify-between"><span className="sf-link">00084207</span><span className="sf-text-mute">4d ago</span></div>
+              <div className="flex justify-between"><span className="sf-text font-medium">00084231</span><span className="sf-text-mute">today</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Composer */}
+        <div className="col-span-4 sf-panel border-r sf-border p-4">
+          <div className="text-xs sf-text-mute mb-2 font-medium uppercase tracking-wider">Quick reply</div>
+          <textarea className="w-full border sf-border rounded p-2 text-xs" rows={6} placeholder="Type your reply to the customer..." />
+          <div className="flex gap-2 mt-2">
+            <button className="px-3 py-1.5 bg-blue-500 text-white rounded text-xs">Send</button>
+            <button className="px-3 py-1.5 border sf-border rounded sf-text text-xs">Save Draft</button>
+            <button className="px-3 py-1.5 border sf-border rounded sf-text text-xs">Templates</button>
+          </div>
+          <div className="mt-5 pt-3 border-t sf-border">
+            <div className="text-xs sf-text-mute mb-2 font-medium uppercase tracking-wider">Activity timeline</div>
+            <div className="space-y-3 text-xs">
+              <div className="border-l-2 border-blue-300 pl-3">
+                <div className="sf-text font-medium">Case created · IVR System</div>
+                <div className="sf-text-mute">Today, 09:14 AM</div>
+              </div>
+              <div className="border-l-2 sf-border pl-3">
+                <div className="sf-text font-medium">Routed to your queue</div>
+                <div className="sf-text-mute">Today, 09:34 AM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Agentforce panel */}
+        <div className="col-span-4 sf-bg p-4 space-y-3 relative">
+          {seamOn && <SeamBadge kind="ootb" label="OOTB · Agentforce (in-Service)" position="top-right" />}
+
+          <div className="sf-panel border sf-border rounded p-3" style={{ borderLeft: "3px solid #032E61" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ color: "#032E61" }}>◈</span>
+              <div className="text-xs uppercase tracking-wider sf-text font-medium">Agentforce · Case Summary</div>
+            </div>
+            <div className="text-xs sf-text leading-relaxed">{agentforce.summary}</div>
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="sf-text-mute">Sentiment:</span>
+              <span className="text-red-600 font-medium">{agentforce.sentiment}</span>
+            </div>
+          </div>
+
+          <div className="sf-panel border sf-border rounded p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ color: "#032E61" }}>◈</span>
+              <div className="text-xs uppercase tracking-wider sf-text font-medium">Agentforce · Reply suggestions</div>
+            </div>
+            <div className="space-y-2">
+              {agentforce.suggestedReplies.map((r, i) => (
+                <div key={i} className="text-xs sf-text border-l-2 sf-border pl-2 italic">"{r}"</div>
+              ))}
+            </div>
+            <div className="text-xs sf-text-dim mt-2 italic">Generic until agent pulls context from other systems</div>
+          </div>
+
+          <div className="sf-panel rounded p-3 relative" style={{ background: "#FFF7ED", border: "1px solid #FED7AA" }}>
+            {seamOn && <SeamBadge kind="ootb" label="OOTB · Swivel-chair required" position="top-right" />}
+            <div className="flex items-center gap-2 mb-2">
+              <span>⚠</span>
+              <div className="text-xs uppercase tracking-wider font-medium" style={{ color: "#9A3412" }}>To resolve this case</div>
+            </div>
+            <div className="text-xs leading-relaxed mb-2" style={{ color: "#7C2D12" }}>
+              Agentforce only sees what's in Service Cloud. The agent still needs {externalApps.length} other systems:
+            </div>
+            <div className="space-y-1.5">
+              {externalApps.map((app, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs" style={{ color: "#9A3412" }}>
+                  <span>{app.icon}</span>
+                  <span className="font-medium">{app.name}</span>
+                  <span style={{ color: "#C2410C" }}>—</span>
+                  <span style={{ color: "#9A3412" }}>{app.note}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs italic mt-2" style={{ color: "#7C2D12" }}>
+              Each system holds a fragment. The agent does the assembly in their head.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// HEADLESS AGENT ASSIST VIEW
+// ============================================================
+const AgentAssistHeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
   const s = scenario;
   const showTranscript = stage >= 1;
   const showSurfaced = stage >= 2;
   const showResponse = stage >= 3;
-
-  const sentimentColor = s.badgeColor === "red" ? "bg-red-700" :
-                         s.badgeColor === "orange" ? "bg-orange-600" :
-                         "bg-amber-500";
-  const sentimentText = s.badgeColor === "red" ? "text-red-700" :
-                        s.badgeColor === "orange" ? "text-orange-700" :
-                        "text-amber-700";
-  const sentimentBorder = s.badgeColor === "red" ? "border-red-700" :
-                          s.badgeColor === "orange" ? "border-orange-600" :
-                          "border-amber-500";
+  const sentimentColor = "bg-orange-600";
+  const sentimentText = "text-orange-700";
+  const sentimentBorder = "border-orange-600";
 
   return (
     <div className="hl-bg" style={{ minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div className="hl-panel border-b hl-border flex items-center px-6 py-3 relative">
         {seamOn && <SeamBadge kind="ootb" label="OOTB · Identity" position="top-left" />}
-        <div className="text-xs uppercase tracking-widest hl-mute">Case {s.caseNumber}</div>
+        <div className="text-xs uppercase tracking-widest hl-mute">Agent Assist · Case {s.caseNumber}</div>
         <div className="ml-auto flex items-center gap-3 text-xs">
           <span className="hl-mute">{s.customerName}</span>
           <span className="hl-mute">·</span>
@@ -612,7 +650,6 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
       </div>
 
       <div className="grid gap-6 p-6" style={{ gridTemplateColumns: seamOn ? "5fr 4fr 3fr 3fr" : "5fr 4fr 3fr" }}>
-        {/* Conversation column */}
         <div>
           {showTranscript && (
             <div className="hl-panel border hl-border rounded-lg p-5 relative fade-in">
@@ -648,9 +685,7 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
                   <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-1.5">Case classification</div>
                   <div className="flex flex-wrap gap-1.5">
                     {s.classification.map((tag, i) => (
-                      <span key={i} className="inline-block text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#FFE5DD", color: "var(--coral-dim)" }}>
-                        {tag}
-                      </span>
+                      <span key={i} className="inline-block text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#FFE5DD", color: "var(--coral-dim)" }}>{tag}</span>
                     ))}
                   </div>
                 </div>
@@ -659,14 +694,12 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
           )}
         </div>
 
-        {/* Surfaced context column */}
         <div>
           {showSurfaced && (
             <div className="hl-panel border hl-border rounded-lg p-5 relative fade-in">
               {seamOn && <SeamBadge kind="built" label="BUILT · Field Orchestration" position="top-right" />}
               <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-1">What matters here</div>
-              <div className="text-xs hl-mute mb-4 italic">3 of {s.id === "maria" ? "30" : "40"} fields surfaced. Decided by case context.</div>
-
+              <div className="text-xs hl-mute mb-4 italic">3 of 30 fields surfaced. Decided by case context.</div>
               <div className="space-y-4">
                 {s.surfacedFields.map((f, i) => (
                   <div key={i} className={`border-l-2 ${sentimentBorder} pl-3`}>
@@ -676,7 +709,6 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
                   </div>
                 ))}
               </div>
-
               <div className="mt-5 pt-4 border-t hl-border">
                 <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">Recommended action</div>
                 <div className="text-sm hl-text">{s.recommendedAction}</div>
@@ -701,38 +733,19 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
           )}
         </div>
 
-        {/* Response column */}
         <div>
           {showResponse && (
             <div className="hl-panel border hl-border rounded-lg p-5 relative fade-in">
-              {seamOn && <SeamBadge kind="built" label={s.handoverNeeded ? "BUILT · Handover Logic" : "BUILT · Generative Response"} position="top-right" />}
-              <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-1">
-                {s.handoverNeeded ? "Suggested handover" : "Suggested response"}
-              </div>
+              {seamOn && <SeamBadge kind="built" label="BUILT · Generative Response" position="top-right" />}
+              <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-1">Suggested response</div>
               <div className="text-xs hl-mute mb-3 italic">{s.responseTone}</div>
-
               <div className={`text-sm hl-text leading-relaxed border-l-2 ${sentimentBorder} pl-3 mb-4`}>
                 "{s.response}"
               </div>
-
               <div className="flex flex-col gap-2">
-                <button
-                  className={`w-full ${s.handoverNeeded ? "bg-red-700 hover:bg-red-800" : "bg-orange-600 hover:bg-orange-700"} text-white text-sm font-medium py-2 rounded transition`}
-                  onClick={() => s.handoverNeeded && onAdvance && onAdvance("handover")}
-                >
-                  {s.handoverNeeded ? "Hand to retention specialist" : "Approve & Send"}
-                </button>
+                <button className="w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 rounded transition">Approve & Send</button>
                 <button className="w-full bg-white hover:bg-gray-50 hl-text text-sm py-2 rounded border hl-border transition">Edit</button>
-                {!s.handoverNeeded && (
-                  <button
-                    className="w-full bg-white hover:bg-gray-50 hl-text text-sm py-2 rounded border hl-border transition"
-                    onClick={() => onAdvance && onAdvance("handover")}
-                  >
-                    Hand to senior agent
-                  </button>
-                )}
               </div>
-
               <div className="mt-4 pt-3 border-t hl-border">
                 <div className="text-xs hl-mute italic">Agent retains control. AI suggested. Agent decides.</div>
               </div>
@@ -746,7 +759,7 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
                 {s.actions.map((a, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
                     <div className={`w-3 h-3 rounded-full ${a.status === "ok" ? "bg-green-600" : "bg-gray-300"}`}></div>
-                    <span className={a.status === "ok" ? "hl-text" : "hl-mute"} style={{ textDecoration: a.status === "blocked" ? "line-through" : "none" }}>{a.label}</span>
+                    <span className={a.status === "ok" ? "hl-text" : "hl-mute"}>{a.label}</span>
                   </div>
                 ))}
               </div>
@@ -774,132 +787,345 @@ const HeadlessView = ({ seamOn, scenario, stage, onAdvance }) => {
 };
 
 // ============================================================
-// HANDOVER VIEW
+// OOTB SELF-SERVICE PORTAL VIEW — generic public website + log in to find your stuff
 // ============================================================
-const HandoverView = ({ scenario, onBack }) => {
+const SelfServicePortalOOTBView = ({ seamOn, scenario }) => {
   const s = scenario;
 
   return (
-    <div className="hl-bg" style={{ minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <div className="hl-panel border-b hl-border flex items-center px-6 py-3">
-        <div className="text-xs uppercase tracking-widest" style={{ color: "var(--coral)", letterSpacing: "0.15em" }}>
-          ⟶  Handover received
-        </div>
-        <div className="ml-auto text-xs hl-mute">
-          From: Front-line agent · To: {s.handoverDestination || "Senior agent"}
+    <div className="legacy-portal-bg" style={{ minHeight: "100%", fontFamily: "Arial, sans-serif" }}>
+      {/* Generic dark header */}
+      <div className="legacy-portal-header relative" style={{ padding: "16px 24px" }}>
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · Generic portal shell" position="top-right" />}
+        <div className="flex items-center justify-between">
+          <div className="text-xl font-bold">YourTelco</div>
+          <div className="flex gap-6 text-sm">
+            <span>Plans</span>
+            <span>Support</span>
+            <span>About</span>
+            <span style={{ color: "#9CA3AF" }}>· Hi, David</span>
+            <span style={{ color: "#9CA3AF" }}>Logout</span>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 p-6">
-        <div className="col-span-7">
-          <div className="hl-panel border hl-border rounded-lg p-6 fade-in">
-            <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-4">Pre-handover summary</div>
-            <div className="text-2xl font-display hl-text mb-1">{s.customerName}</div>
-            <div className="text-sm hl-mute mb-4">{s.customerType}</div>
+      {/* Top nav strip */}
+      <div style={{ background: "#374151", color: "white", padding: "10px 24px" }} className="text-sm flex gap-6">
+        <span>Dashboard</span>
+        <span>My Account</span>
+        <span>Billing</span>
+        <span>Services</span>
+        <span>Support</span>
+        <span>Network Status</span>
+        <span style={{ marginLeft: "auto", color: "#9CA3AF" }}>Last login: 32 days ago</span>
+      </div>
 
-            <div className="border-l-2 border-orange-600 pl-4 my-5">
-              <div className="text-xs uppercase tracking-wider hl-mute font-medium mb-1">Why this is on your desk</div>
-              <div className="text-base hl-text">{s.summary}</div>
-            </div>
+      <div className="grid grid-cols-12 gap-6 p-6" style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Main content */}
+        <div className="col-span-8">
+          <div className="bg-white rounded shadow-sm p-6 mb-4 relative" style={{ border: "1px solid #e5e7eb" }}>
+            {seamOn && <SeamBadge kind="ootb" label="OOTB · Generic dashboard" position="top-right" />}
+            <div className="text-2xl mb-2" style={{ color: "#1f2937" }}>Welcome back, David.</div>
+            <div className="text-sm mb-6" style={{ color: "#6b7280" }}>Your account dashboard.</div>
 
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 mt-6 pt-6 border-t hl-border">
-              <div>
-                <div className="text-xs uppercase tracking-wider hl-mute font-medium mb-1">Customer context</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "8.1 years tenure" : "6+ years tenure"}</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "$12,840 lifetime value" : "Top-tier customer"}</div>
-                <div className="text-sm hl-text">{s.callsThisWeekLabel}</div>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="border rounded p-3" style={{ borderColor: "#e5e7eb" }}>
+                <div className="text-xs uppercase" style={{ color: "#6b7280" }}>Current Plan</div>
+                <div className="text-lg" style={{ color: "#1f2937" }}>Business 4-Line</div>
               </div>
-              <div>
-                <div className="text-xs uppercase tracking-wider hl-mute font-medium mb-1">What's already happened</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "4 prior unresolved attempts" : "Initial agent contact"}</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "Recurring outage in service area" : "Standard fields surfaced"}</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "Competitor named (Aussie Broadband)" : "Sentiment captured"}</div>
+              <div className="border rounded p-3" style={{ borderColor: "#e5e7eb" }}>
+                <div className="text-xs uppercase" style={{ color: "#6b7280" }}>Next Bill</div>
+                <div className="text-lg" style={{ color: "#1f2937" }}>$285.00 · Sep 1</div>
               </div>
-              <div>
-                <div className="text-xs uppercase tracking-wider hl-mute font-medium mb-1">What the agent did</div>
-                <div className="text-sm hl-text">Acknowledged customer position</div>
-                <div className="text-sm hl-text">Did not attempt resolution beyond authority</div>
-                <div className="text-sm hl-text">Routed with full context</div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wider hl-mute font-medium mb-1">Authority required</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "Up to $200 retention offer" : "Senior agent decision"}</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "Or service swap (Fibre 1000)" : "Or escalation queue"}</div>
-                <div className="text-sm hl-text">{s.id === "aisha" ? "Or coverage upgrade" : "Or specialist routing"}</div>
+              <div className="border rounded p-3" style={{ borderColor: "#e5e7eb" }}>
+                <div className="text-xs uppercase" style={{ color: "#6b7280" }}>Usage This Month</div>
+                <div className="text-lg" style={{ color: "#1f2937" }}>1,243 mins / 4 lines</div>
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t hl-border">
-              <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">Customer's most recent words</div>
-              <div className="text-sm hl-text italic border-l-2 hl-border pl-4">
-                "{s.transcript[s.transcript.length - 1].text}"
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border rounded p-4" style={{ borderColor: "#e5e7eb", background: "#fafafa" }}>
+                <div className="text-sm font-medium mb-2" style={{ color: "#1f2937" }}>Quick links</div>
+                <ul className="space-y-1.5 text-sm" style={{ color: "#2563eb" }}>
+                  <li>· View latest bill</li>
+                  <li>· Update payment method</li>
+                  <li>· Manage lines</li>
+                  <li>· Change plan</li>
+                  <li>· Add a feature</li>
+                  <li>· View usage history</li>
+                </ul>
               </div>
+              <div className="border rounded p-4" style={{ borderColor: "#e5e7eb", background: "#fafafa" }}>
+                <div className="text-sm font-medium mb-2" style={{ color: "#1f2937" }}>Need help?</div>
+                <ul className="space-y-1.5 text-sm" style={{ color: "#2563eb" }}>
+                  <li>· Browse help articles</li>
+                  <li>· Contact support</li>
+                  <li>· Network status</li>
+                  <li>· Report an issue</li>
+                  <li>· Live chat</li>
+                  <li>· Find a store</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded shadow-sm p-6 mb-4" style={{ border: "1px solid #e5e7eb" }}>
+            <div className="text-sm font-medium mb-3" style={{ color: "#1f2937" }}>Recent activity</div>
+            <div className="space-y-2 text-sm" style={{ color: "#6b7280" }}>
+              <div>· Bill paid via portal — 32 days ago</div>
+              <div>· Plan changed (added line) — 4 months ago</div>
+              <div>· Address updated — 8 months ago</div>
             </div>
           </div>
         </div>
 
-        <div className="col-span-5">
-          <div className="hl-panel border hl-border rounded-lg p-5 fade-in" style={{ animationDelay: "150ms" }}>
-            <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-3">Recommended approach</div>
-            <div className="text-sm hl-text leading-relaxed mb-4">
-              {s.id === "aisha"
-                ? "Acknowledge the failure of the previous four contacts. Do not contest the cancellation. Lead with what's been broken on our side — the recurring outage was an unscheduled work order with no committed ETA shared with her."
-                : "Continue from where the front-line agent left off. Customer expects forward motion, not a re-explanation."}
-            </div>
-            <div className="text-sm hl-text leading-relaxed">
-              {s.id === "aisha"
-                ? "If retention is feasible at all, the offer needs to be material — service swap to Fibre 1000 at current price + 6 months credit, or full upgrade to next tier with priority queue access. A standard discount won't move someone at this point."
-                : "Match the tone the customer has already established. Don't restart small talk."}
-            </div>
-
-            <div className="mt-5 pt-4 border-t hl-border">
-              <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">Options at your authority level</div>
-              <div className="space-y-2">
-                {s.id === "aisha" ? (
-                  <>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">Service swap to Fibre 1000 + 6mo credit</span></div>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">Tier upgrade + priority queue (12 mo)</span></div>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">$200 retention credit + waive next bill</span></div>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">Honourable cancel + churn analysis ticket</span></div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">Full escalation authority</span></div>
-                    <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 rounded-full bg-green-600"></div><span className="hl-text">Cross-team routing if needed</span></div>
-                  </>
-                )}
-              </div>
+        {/* Side rail */}
+        <div className="col-span-4 relative">
+          {seamOn && <SeamBadge kind="ootb" label="OOTB · Customer hunts for help" position="top-right" />}
+          <div className="bg-white rounded shadow-sm p-5 mb-4" style={{ border: "1px solid #e5e7eb" }}>
+            <div className="text-sm font-medium mb-3" style={{ color: "#1f2937" }}>News & Updates</div>
+            <div className="space-y-2 text-sm" style={{ color: "#6b7280" }}>
+              <div>· New iPhone available · pre-order</div>
+              <div>· Holiday hours changes for support</div>
+              <div>· Refer a friend & get $50</div>
+              <div>· Mobile app v3.0 released</div>
             </div>
           </div>
 
-          <div className="mt-4 hl-panel border hl-border rounded-lg p-4 fade-in" style={{ animationDelay: "300ms" }}>
-            <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">Handover quality</div>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <div className="hl-mute">Time agent spent on call</div>
-                <div className="text-base font-semibold hl-text">1 min 04 sec</div>
-              </div>
-              <div>
-                <div className="hl-mute">Context loss</div>
-                <div className="text-base font-semibold" style={{ color: "var(--hl-success)" }}>0%</div>
-              </div>
-              <div>
-                <div className="hl-mute">Customer re-explains</div>
-                <div className="text-base font-semibold" style={{ color: "var(--hl-success)" }}>None required</div>
-              </div>
-              <div>
-                <div className="hl-mute">Decision authority match</div>
-                <div className="text-base font-semibold" style={{ color: "var(--hl-success)" }}>Routed correctly</div>
+          <div className="bg-white rounded shadow-sm p-5" style={{ border: "1px solid #e5e7eb" }}>
+            <div className="text-sm font-medium mb-3" style={{ color: "#1f2937" }}>Support</div>
+            <div className="space-y-2 text-sm" style={{ color: "#2563eb" }}>
+              <div>· FAQ</div>
+              <div>· Live chat · Mon-Fri 9-5</div>
+              <div>· Phone support: 13 12 34</div>
+            </div>
+            <div className="text-xs mt-3 italic" style={{ color: "#9ca3af" }}>
+              For billing issues, click "Contact support" and choose "Billing" from the drop-down.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center text-xs italic mt-4 pb-6" style={{ color: "#9ca3af" }}>
+        David's payment failure is in here somewhere. He'll need to find it himself, then figure out what to do about it.
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// HEADLESS SELF-SERVICE PORTAL VIEW — composed for THIS moment
+// ============================================================
+const SelfServicePortalHeadlessView = ({ seamOn, scenario, stage }) => {
+  const s = scenario;
+  const ctx = s.portalContext;
+  const showProblem = stage >= 1;
+  const showSolution = stage >= 2;
+  const showCompletion = stage >= 3;
+
+  return (
+    <div className="portal-bg" style={{ minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif", background: "#FFFFFF" }}>
+      {/* Minimal customer-facing header */}
+      <div className="flex items-center px-8 py-5 relative" style={{ borderBottom: "1px solid #F0EBE0" }}>
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · Identity (logged in as David)" position="top-left" />}
+        <div className="font-display text-xl portal-accent" style={{ color: "#1A1A1A" }}>YourTelco</div>
+        <div className="ml-auto flex items-center gap-4 text-sm" style={{ color: "#6b7280" }}>
+          <span>Account</span>
+          <span>Help</span>
+          <span style={{ color: "#1A1A1A", fontWeight: 500 }}>David</span>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 880, margin: "0 auto", padding: "48px 32px" }}>
+        {/* Stage 1: Problem acknowledged in plain language */}
+        {showProblem && (
+          <div className="fade-in relative">
+            {seamOn && <SeamBadge kind="built" label="BUILT · Composed for this moment" position="top-right" />}
+            <div className="text-xs uppercase tracking-widest mb-4" style={{ color: "#B91C1C", letterSpacing: "0.15em" }}>
+              We noticed something
+            </div>
+            <div className="font-display text-4xl mb-3 portal-accent" style={{ color: "#1A1A1A", lineHeight: 1.2 }}>
+              {ctx.headline}
+            </div>
+            <div className="text-lg mb-8" style={{ color: "#4B5563" }}>{ctx.subheadline}</div>
+
+            <div className="portal-soft rounded-lg p-6 mb-8" style={{ background: "#F7F5F0", border: "1px solid #F0EBE0" }}>
+              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: "#6b7280", letterSpacing: "0.1em" }}>What happened</div>
+              <div className="text-base mb-1" style={{ color: "#1A1A1A" }}>{ctx.detectedIssue}</div>
+              <div className="text-sm italic" style={{ color: "#6b7280" }}>{ctx.detectedCause}</div>
+            </div>
+
+            <div className="rounded-lg p-4 mb-8 flex items-center gap-3" style={{ background: "#FEF3C7", border: "1px solid #FCD34D" }}>
+              <span style={{ color: "#92400E" }}>⏱</span>
+              <div className="text-sm" style={{ color: "#78350F" }}>
+                {ctx.timer}
               </div>
             </div>
           </div>
+        )}
 
-          <button
-            onClick={onBack}
-            className="mt-4 w-full bg-white hover:bg-gray-50 hl-text text-sm py-2 rounded border hl-border transition"
-          >
-            ← Back to agent view
-          </button>
+        {/* Stage 2: Solution — primary action surfaced */}
+        {showSolution && (
+          <div className="fade-in relative" style={{ animationDelay: "100ms" }}>
+            {seamOn && <SeamBadge kind="built" label="BUILT · Action ranked by likelihood of solving" position="top-right" />}
+            <div className="space-y-3 mb-8">
+              {s.portalActions.map((action, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg p-5 flex items-center justify-between transition cursor-pointer hover:shadow-md"
+                  style={{
+                    background: action.primary ? "#1A1A1A" : "#FFFFFF",
+                    color: action.primary ? "#FFFFFF" : "#1A1A1A",
+                    border: action.primary ? "none" : "1px solid #E5E7EB",
+                  }}
+                >
+                  <div>
+                    <div className="text-base font-medium">{action.label}</div>
+                    {action.eta && (
+                      <div className="text-xs mt-1" style={{ opacity: 0.7 }}>Takes about {action.eta}</div>
+                    )}
+                    {action.note && (
+                      <div className="text-xs mt-1 italic" style={{ opacity: 0.7 }}>{action.note}</div>
+                    )}
+                  </div>
+                  <div style={{ opacity: 0.5 }}>{action.primary ? "→" : "✓"}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-xs uppercase tracking-wider mb-3" style={{ color: "#9CA3AF", letterSpacing: "0.15em" }}>
+              Or, if you'd rather
+            </div>
+            <div className="space-y-2 mb-8">
+              {s.portalAlternatives.map((alt, i) => (
+                <div key={i} className="text-sm flex items-center justify-between py-2" style={{ borderBottom: "1px solid #F0EBE0" }}>
+                  <span style={{ color: "#4B5563" }}>{alt.label}</span>
+                  <span style={{ color: "#9CA3AF" }}>{alt.note}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Stage 3: Completion preview / context */}
+        {showCompletion && (
+          <div className="fade-in relative" style={{ animationDelay: "200ms" }}>
+            {seamOn && <SeamBadge kind="built" label="BUILT · Outcome logged, no call needed" position="top-right" />}
+            <div className="rounded-lg p-6" style={{ background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ color: "#15803D" }}>✓</span>
+                <div className="text-xs uppercase tracking-wider font-medium" style={{ color: "#15803D", letterSpacing: "0.1em" }}>
+                  When David completes this
+                </div>
+              </div>
+              <div className="text-base mb-2" style={{ color: "#14532D" }}>
+                Payment method updated. Timer paused. Fee waived. POS stays online for tonight's function.
+              </div>
+              <div className="text-sm italic" style={{ color: "#15803D" }}>
+                No call. No transfer. No 4-minute wait. The portal handled it because the portal knew what was happening.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!showProblem && (
+          <div className="text-center" style={{ padding: "80px 0" }}>
+            <div className="text-xs uppercase tracking-widest mb-2" style={{ color: "#9CA3AF" }}>Ready</div>
+            <div className="text-sm" style={{ color: "#4B5563" }}>Click "Start scenario" to see what David sees.</div>
+          </div>
+        )}
+      </div>
+
+      {/* Reasoning trace docked at bottom when seam on */}
+      {seamOn && stage >= 1 && (
+        <div className="fade-in p-6" style={{ background: "#F7F5F0", borderTop: "1px solid #F0EBE0" }}>
+          <ReasoningTrace scenario={s} stage={stage} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// OOTB SPECIALIST WORKSPACE VIEW — generic case view dressed up
+// ============================================================
+const SpecialistWorkspaceOOTBView = ({ seamOn, scenario }) => {
+  const s = scenario;
+
+  return (
+    <div className="sf-bg" style={{ minHeight: "100%", fontSize: "13px" }}>
+      <div className="sf-panel border-b sf-border flex items-center px-4 py-2" style={{ height: 44 }}>
+        <div className="font-bold text-base sf-header">Service Console — Retention queue</div>
+        <div className="ml-6 flex gap-1 text-xs sf-text-mute">
+          <span className="px-2 py-1 sf-bg rounded">Cases</span>
+          <span className="px-2 py-1 sf-bg rounded">Accounts</span>
+          <span className="px-2 py-1 sf-bg rounded">Knowledge</span>
+        </div>
+      </div>
+
+      <div className="sf-panel border-b sf-border px-6 py-4 relative">
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · Same case view as front-line" />}
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-lg">📋</div>
+          <div className="flex-1">
+            <div className="text-xs sf-text-mute uppercase tracking-wider">Case · escalated</div>
+            <div className="text-xl font-semibold sf-header">{s.caseNumber}</div>
+            <div className="text-xs sf-text-mute mt-1">{s.headline}</div>
+          </div>
+          <div className="grid grid-cols-3 gap-x-8 gap-y-1 text-xs">
+            <div><div className="sf-text-mute">Status</div><div className="sf-text font-medium">Escalated</div></div>
+            <div><div className="sf-text-mute">Priority</div><div className="sf-text font-medium">Critical</div></div>
+            <div><div className="sf-text-mute">Owner</div><div className="sf-link">Sandra K.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-0">
+        <div className="col-span-5 sf-panel border-r sf-border p-4 relative">
+          {seamOn && <SeamBadge kind="ootb" label="OOTB · Same fields as agent saw" position="top-right" />}
+          <div className="text-xs uppercase tracking-wider sf-text-mute mb-3 font-medium">Details</div>
+          <div className="space-y-2 text-xs">
+            {[
+              ["Subject", s.headline],
+              ["Type", "Cancellation"],
+              ["Account", s.customerName],
+              ["Tenure (years)", "8.1"],
+              ["Plan", "Fibre 250 + Mobile 60GB"],
+              ["Address", s.location],
+              ["Created", "Today, 09:14 AM"],
+              ["Escalated From", "Front-line agent"],
+              ["Notes", "Customer has named competitor (Aussie Broadband). 4 prior unresolved cases."],
+              ["Resolution Code", "—"],
+            ].map(([label, value], i) => (
+              <div key={i} className="grid grid-cols-2 gap-2">
+                <div className="sf-text-mute">{label}</div>
+                <div className="sf-text">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="col-span-4 sf-panel border-r sf-border p-4">
+          <div className="text-xs sf-text-mute mb-2 font-medium uppercase tracking-wider">Compose offer</div>
+          <textarea className="w-full border sf-border rounded p-2 text-xs" rows={6} placeholder="Type your offer details..." />
+          <div className="text-xs sf-text-mute mt-3 italic">
+            Sandra has to look up: lifetime value, comparable customer outcomes, offer authority limits, churn risk score — all in separate reports/dashboards.
+          </div>
+        </div>
+
+        <div className="col-span-3 sf-bg p-4 space-y-3 relative">
+          {seamOn && <SeamBadge kind="ootb" label="OOTB · Generic helper panel" position="top-right" />}
+          <div className="sf-panel border sf-border rounded p-3">
+            <div className="text-xs uppercase tracking-wider sf-text font-medium mb-2">Retention reports</div>
+            <div className="space-y-1.5 text-xs sf-link">
+              <div>· LTV report</div>
+              <div>· Churn risk dashboard</div>
+              <div>· Comparable outcomes (Tableau)</div>
+              <div>· Authority matrix (PDF)</div>
+              <div>· Retention scripts (Confluence)</div>
+            </div>
+            <div className="text-xs sf-text-dim mt-2 italic">5 separate places. Sandra cross-references manually.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -907,7 +1133,199 @@ const HandoverView = ({ scenario, onBack }) => {
 };
 
 // ============================================================
-// SCENARIO SUMMARY
+// HEADLESS SPECIALIST WORKSPACE VIEW — authority-rich, dense, decision-oriented
+// ============================================================
+const SpecialistWorkspaceHeadlessView = ({ seamOn, scenario, stage }) => {
+  const s = scenario;
+  const ctx = s.specialistContext;
+  const showHandover = stage >= 1;
+  const showAnalytics = stage >= 2;
+  const showOffers = stage >= 3;
+
+  const [selectedOffer, setSelectedOffer] = useState(null);
+
+  return (
+    <div className="spec-bg" style={{ minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* Specialist header */}
+      <div className="flex items-center px-6 py-3 relative" style={{ borderBottom: "1px solid var(--spec-border)" }}>
+        {seamOn && <SeamBadge kind="ootb" label="OOTB · Identity" position="top-left" />}
+        <div className="text-xs uppercase tracking-widest spec-mute">Retention Workspace · Sandra K.</div>
+        <div className="ml-auto flex items-center gap-3 text-xs">
+          <span className="spec-mute">{s.customerName}</span>
+          <span className="spec-mute">·</span>
+          <span className="spec-mute">{s.customerType}</span>
+          <span className="spec-mute">·</span>
+          <span className="font-medium" style={{ color: "var(--spec-danger)" }}>{s.callsThisWeekLabel}</span>
+        </div>
+      </div>
+
+      <div className="grid gap-6 p-6" style={{ gridTemplateColumns: seamOn ? "5fr 4fr 3fr 3fr" : "5fr 4fr 3fr" }}>
+        {/* Left: handover context + customer */}
+        <div>
+          {showHandover && (
+            <div className="spec-panel rounded-lg p-5 fade-in relative">
+              {seamOn && <SeamBadge kind="built" label="BUILT · Handover context preserved" position="top-right" />}
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ color: "var(--coral)" }}>⟶</span>
+                <div className="text-xs uppercase tracking-widest spec-mute font-medium">Handover received</div>
+              </div>
+              <div className="text-xs spec-mute italic mb-3">{ctx.handoverFrom}</div>
+              <div className="text-sm spec-text border-l-2 pl-3" style={{ borderColor: "var(--coral)" }}>
+                {ctx.handoverReason}
+              </div>
+
+              <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--spec-border)" }}>
+                <div className="text-xs uppercase tracking-widest spec-mute font-medium mb-3">Customer's last words to agent</div>
+                <div className="space-y-2 max-h-40 overflow-y-auto scroll-y">
+                  {s.transcript.slice(-3).map((line, i) => (
+                    <div key={i} className="text-xs">
+                      <span className="spec-mute">{line.time}</span>
+                      <span className="ml-2 spec-text">"{line.text}"</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--spec-border)" }}>
+                <div className="text-xs uppercase tracking-widest spec-mute font-medium mb-3">Customer profile</div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div className="spec-mute">Lifetime value</div>
+                    <div className="spec-text font-mono text-base font-semibold">{ctx.ltv}</div>
+                  </div>
+                  <div>
+                    <div className="spec-mute">Replacement CAC</div>
+                    <div className="spec-text font-mono text-base font-semibold">{ctx.replacementCAC}</div>
+                  </div>
+                  <div>
+                    <div className="spec-mute">Tenure bucket</div>
+                    <div className="spec-text">{ctx.tenureBucket}</div>
+                  </div>
+                  <div>
+                    <div className="spec-mute">Churn risk</div>
+                    <div style={{ color: "var(--spec-danger)" }} className="font-mono text-base font-semibold">{ctx.churnRiskScore}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Middle: comparable outcomes */}
+        <div>
+          {showAnalytics && (
+            <div className="spec-panel rounded-lg p-5 fade-in relative">
+              {seamOn && <SeamBadge kind="built" label="BUILT · Comparable outcomes (live)" position="top-right" />}
+              <div className="text-xs uppercase tracking-widest spec-mute font-medium mb-1">What's worked for similar cases</div>
+              <div className="text-xs spec-mute italic mb-4">90-day window · same profile shape</div>
+
+              <div className="space-y-4">
+                {s.comparableOutcomes.map((o, i) => (
+                  <div key={i}>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <div className="text-xs spec-mute">{o.label}</div>
+                      <div className="text-sm font-mono spec-text font-semibold">{o.value}</div>
+                    </div>
+                    <div className="h-1 rounded-full" style={{ background: "var(--spec-border)" }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: i === 1 ? "61%" : i === 2 ? "11%" : i === 3 ? "75%" : "30%",
+                          background: i === 2 ? "var(--spec-danger)" : "var(--spec-success)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 pt-4 text-xs spec-mute italic" style={{ borderTop: "1px solid var(--spec-border)" }}>
+                Pattern: financial offers under $200 don't move customers like this. Service swaps work. Honourable cancel is acceptable.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: offer composer */}
+        <div>
+          {showOffers && (
+            <div className="spec-panel rounded-lg p-5 fade-in relative">
+              {seamOn && <SeamBadge kind="built" label="BUILT · Offer composer + authority check" position="top-right" />}
+              <div className="text-xs uppercase tracking-widest spec-mute font-medium mb-1">Offer options</div>
+              <div className="text-xs spec-mute italic mb-4">Modelled retention probability · all within your authority</div>
+
+              <div className="space-y-2">
+                {s.offerOptions.map((offer, i) => {
+                  const isSelected = selectedOffer === offer.id;
+                  const isRecommended = offer.recommended;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedOffer(offer.id)}
+                      className="rounded p-3 cursor-pointer transition"
+                      style={{
+                        background: isSelected ? "rgba(245, 158, 11, 0.1)" : "var(--spec-bg)",
+                        border: `1px solid ${isSelected ? "var(--spec-accent)" : isRecommended ? "var(--spec-success)" : "var(--spec-border)"}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-sm font-medium spec-text">{offer.label}</div>
+                        {isRecommended && (
+                          <div className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--spec-success)", color: "white" }}>
+                            RECOMMENDED
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-baseline justify-between text-xs">
+                        <div className="spec-mute">Retention probability</div>
+                        <div className="font-mono spec-text font-semibold">{offer.retention}%</div>
+                      </div>
+                      <div className="flex items-baseline justify-between text-xs mt-1">
+                        <div className="spec-mute">Cost</div>
+                        <div className="spec-text">{offer.cost}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedOffer && (
+                <button
+                  className="w-full mt-4 py-2.5 rounded text-sm font-medium fade-in"
+                  style={{ background: "var(--spec-accent)", color: "var(--spec-bg)" }}
+                >
+                  Make this offer →
+                </button>
+              )}
+
+              <div className="mt-4 pt-3 text-xs spec-mute italic" style={{ borderTop: "1px solid var(--spec-border)" }}>
+                Sandra decides. The system models. Different surface from the agent — for the same engine.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {seamOn && stage >= 1 && (
+          <div className="fade-in">
+            <ReasoningTrace scenario={s} stage={stage} />
+          </div>
+        )}
+      </div>
+
+      {stage === 0 && (
+        <div className="flex items-center justify-center" style={{ minHeight: 400 }}>
+          <div className="text-center">
+            <div className="text-xs uppercase tracking-widest spec-mute mb-2">Ready</div>
+            <div className="text-sm spec-text">Click "Start scenario" — case is being handed to Sandra now.</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// SCENARIO SUMMARY VIEW — one screen per scenario
 // ============================================================
 const ScenarioSummaryView = ({ scenario, onContinue }) => {
   const s = scenario;
@@ -917,7 +1335,7 @@ const ScenarioSummaryView = ({ scenario, onContinue }) => {
     <div className="hl-bg p-8 flex items-center justify-center" style={{ minHeight: "100%", fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div className="max-w-4xl w-full">
         <div className="text-center mb-8 fade-in">
-          <div className="text-xs uppercase tracking-widest" style={{ color: "var(--coral)", letterSpacing: "0.2em" }}>Scenario complete</div>
+          <div className="text-xs uppercase tracking-widest" style={{ color: "var(--coral)", letterSpacing: "0.2em" }}>Scenario complete · {s.surfaceLabel}</div>
           <div className="text-3xl font-display hl-text mt-2">{s.customerName}</div>
           <div className="text-sm hl-mute italic mt-1">{s.headline}</div>
         </div>
@@ -930,39 +1348,41 @@ const ScenarioSummaryView = ({ scenario, onContinue }) => {
           <div className="hl-panel border hl-border rounded-lg p-5 fade-in" style={{ animationDelay: "300ms" }}>
             <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">Decisions automated</div>
             <div className="text-2xl font-display hl-text">{s.summaryImpact.decisionsAutomated}</div>
-            <div className="text-xs hl-mute mt-1">Field surfacing, knowledge fetch, response generation</div>
+            <div className="text-xs hl-mute mt-1">By the orchestration layer</div>
           </div>
           <div className="hl-panel border hl-border rounded-lg p-5 fade-in" style={{ animationDelay: "450ms" }}>
-            <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">{handover > 0 ? "Handover" : "Decisions by agent"}</div>
+            <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">{handover > 0 ? "Handover" : "Decisions by human"}</div>
             <div className="text-2xl font-display" style={{ color: "var(--coral)" }}>
               {handover > 0 ? "Routed" : s.summaryImpact.decisionsAgent}
             </div>
-            <div className="text-xs hl-mute mt-1">{handover > 0 ? "To retention specialist with full context" : "Approve / edit / send"}</div>
+            <div className="text-xs hl-mute mt-1">{handover > 0 ? "To specialist with full context" : "Final call belongs to the human"}</div>
           </div>
         </div>
 
         <div className="hl-panel border hl-border rounded-lg p-6 fade-in" style={{ animationDelay: "600ms" }}>
           <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-3">Compared to OOTB baseline</div>
           <div className="text-base hl-text">
-            <span className="hl-mute italic">Without the orchestration layer, this case </span>
+            <span className="hl-mute italic">Without the orchestration layer, this scenario </span>
             {s.summaryImpact.ootbBaseline}<span className="hl-mute italic">.</span>
           </div>
         </div>
 
         <div className="hl-panel border-2 rounded-lg p-6 mt-6 fade-in" style={{ borderColor: "var(--coral)", animationDelay: "750ms" }}>
-          <div className="text-xs uppercase tracking-widest font-medium mb-3" style={{ color: "var(--coral)" }}>What we decided</div>
+          <div className="text-xs uppercase tracking-widest font-medium mb-3" style={{ color: "var(--coral)" }}>
+            Same engine, different surface
+          </div>
           <div className="grid grid-cols-3 gap-6 text-sm">
             <div>
-              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Which fields matter</div>
-              <div className="hl-text">{s.surfacedFields.length} fields surfaced. {s.id === "maria" ? "27" : "37"} collapsed.</div>
+              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Surface composed for</div>
+              <div className="hl-text">{s.audience}</div>
             </div>
             <div>
-              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Tone of response</div>
-              <div className="hl-text">{s.responseTone.replace("Tone: ", "")}</div>
+              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Surface type</div>
+              <div className="hl-text">{s.surfaceLabel}</div>
             </div>
             <div>
-              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Who decides</div>
-              <div className="hl-text">{handover > 0 ? "Specialist (auto-routed)" : "Agent (AI suggested)"}</div>
+              <div className="hl-mute text-xs uppercase tracking-wider mb-1">Underlying capabilities</div>
+              <div className="hl-text">Service Cloud · Billing · Network Ops · Identity</div>
             </div>
           </div>
         </div>
@@ -982,7 +1402,7 @@ const ScenarioSummaryView = ({ scenario, onContinue }) => {
 };
 
 // ============================================================
-// SCENARIO PICKER
+// SCENARIO PICKER — three cards highlighting SURFACE TYPE
 // ============================================================
 const ScenarioPicker = ({ onPick }) => {
   return (
@@ -990,10 +1410,10 @@ const ScenarioPicker = ({ onPick }) => {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <div className="text-xs uppercase tracking-widest" style={{ color: "var(--coral)", letterSpacing: "0.2em" }}>
-            Same engine. Different cases.
+            One engine · Three surfaces
           </div>
-          <div className="text-2xl font-display mt-2 hl-text">Three scenarios. Pick one.</div>
-          <div className="text-sm hl-mute mt-1 italic">Each case requires different fields, different tone, different decisions.</div>
+          <div className="text-2xl font-display mt-2 hl-text">Same capabilities. Different audiences. Different decisions.</div>
+          <div className="text-sm hl-mute mt-1 italic">The "360" in Headless 360. Service Cloud capabilities composed for whoever's looking.</div>
         </div>
 
         <div className="grid grid-cols-3 gap-6">
@@ -1010,17 +1430,25 @@ const ScenarioPicker = ({ onPick }) => {
                 onClick={() => onPick(s.id)}
                 className="scenario-card hl-panel border hl-border rounded-lg p-6 cursor-pointer hover:shadow-lg"
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`w-2 h-2 rounded-full ${dotColor}`}></div>
-                  <div className={`text-xs font-medium uppercase tracking-wider ${textColor}`}>{s.badge}</div>
+                <div className="text-xs uppercase tracking-widest font-medium mb-2" style={{ color: "var(--coral)", letterSpacing: "0.15em" }}>
+                  Surface {s.id === "maria" ? "1" : s.id === "david" ? "2" : "3"}
                 </div>
-                <div className="text-xl font-display hl-text mb-1">{s.customerName}</div>
-                <div className="text-xs hl-mute mb-4">{s.customerType}</div>
-                <div className="text-sm hl-text font-medium mb-2">{s.headline}</div>
-                <div className="text-xs hl-mute leading-relaxed">{s.summary}</div>
+                <div className="text-lg font-display hl-text mb-1">{s.surfaceLabel}</div>
+                <div className="text-xs hl-mute italic mb-4">{s.surfaceDescription}</div>
+
+                <div className="pt-4 mt-4" style={{ borderTop: "1px solid #E5E7EB" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-2 h-2 rounded-full ${dotColor}`}></div>
+                    <div className={`text-xs font-medium uppercase tracking-wider ${textColor}`}>{s.badge}</div>
+                  </div>
+                  <div className="text-base hl-text font-medium mb-1">{s.customerName}</div>
+                  <div className="text-xs hl-mute mb-3">{s.customerType}</div>
+                  <div className="text-sm hl-text font-medium mb-2">{s.headline}</div>
+                  <div className="text-xs hl-mute leading-relaxed">{s.summary}</div>
+                </div>
 
                 <div className="mt-5 pt-4 border-t hl-border flex items-center justify-between">
-                  <div className="text-xs hl-mute">{s.callsThisWeekLabel}</div>
+                  <div className="text-xs hl-mute">Audience: {s.audience}</div>
                   <div className="text-xs font-medium" style={{ color: "var(--coral)" }}>Run scenario →</div>
                 </div>
               </div>
@@ -1032,16 +1460,16 @@ const ScenarioPicker = ({ onPick }) => {
           <div className="text-xs uppercase tracking-widest hl-mute font-medium mb-2">How this demo works</div>
           <div className="grid grid-cols-3 gap-4 text-xs hl-text">
             <div>
-              <div className="font-semibold mb-1">1. Pick a scenario</div>
-              <div className="hl-mute">Three different shapes of customer problem. Same underlying engine handles each one differently.</div>
+              <div className="font-semibold mb-1">Each surface is for a different person</div>
+              <div className="hl-mute">Frontline agent. Customer. Specialist. Three different people, three different needs, three different surfaces.</div>
             </div>
             <div>
-              <div className="font-semibold mb-1">2. Walk through it stage by stage</div>
-              <div className="hl-mute">You control the pacing. Each stage of the demo waits for your click — talk for as long as you need.</div>
+              <div className="font-semibold mb-1">All three pull from the same capabilities</div>
+              <div className="hl-mute">Service Cloud · Billing · Network · Identity. The data and the underlying systems are the same. What differs is the composition.</div>
             </div>
             <div>
-              <div className="font-semibold mb-1">3. Toggle the seam</div>
-              <div className="hl-mute">Show OOTB versus Built. Show the reasoning trace. Show the handover. End with the scenario summary.</div>
+              <div className="font-semibold mb-1">Toggle the seam to see why</div>
+              <div className="hl-mute">OOTB versus Built. What Salesforce gives you out of the box, versus what XS composes on top.</div>
             </div>
           </div>
         </div>
@@ -1073,8 +1501,6 @@ const App = () => {
     else if (stage === 3 && activeScenario) setView("summary");
   };
 
-  const handleHandover = () => setView("handover");
-
   const backToScenarios = () => {
     setView("picker");
     setActiveScenarioId(null);
@@ -1082,11 +1508,41 @@ const App = () => {
     setSeamOn(false);
   };
 
-  const stageLabel = (n) => {
-    if (n === 1) return "Conversation captured. Sentiment + classification running.";
-    if (n === 2) return "Relevant context surfaced. Fields chosen by case shape.";
-    if (n === 3) return "Response drafted in tone-matched register. Agent decides what to send.";
+  const stageLabels = (s, n) => {
+    if (!s) return "";
+    if (s.surfaceType === "agent_assist") {
+      if (n === 1) return "Conversation captured. Sentiment + classification running.";
+      if (n === 2) return "Relevant context surfaced. Fields chosen by case shape.";
+      if (n === 3) return "Response drafted in tone-matched register. Agent decides what to send.";
+    }
+    if (s.surfaceType === "self_service_portal") {
+      if (n === 1) return "Portal detects David's situation the moment he logs in.";
+      if (n === 2) return "Primary action surfaced — ranked by likelihood of solving.";
+      if (n === 3) return "If completed, no call required. The portal handled it.";
+    }
+    if (s.surfaceType === "specialist_workspace") {
+      if (n === 1) return "Handover received. Full context preserved across systems.";
+      if (n === 2) return "Comparable outcomes surfaced. Patterns from similar cases visible.";
+      if (n === 3) return "Offer composer with modelled retention. All within Sandra's authority.";
+    }
     return "";
+  };
+
+  // Choose the right OOTB and Headless components based on surface type
+  const getOOTBComponent = () => {
+    if (!activeScenario) return null;
+    if (activeScenario.surfaceType === "agent_assist") return <AgentAssistOOTBView seamOn={seamOn} scenario={activeScenario} />;
+    if (activeScenario.surfaceType === "self_service_portal") return <SelfServicePortalOOTBView seamOn={seamOn} scenario={activeScenario} />;
+    if (activeScenario.surfaceType === "specialist_workspace") return <SpecialistWorkspaceOOTBView seamOn={seamOn} scenario={activeScenario} />;
+    return null;
+  };
+
+  const getHeadlessComponent = () => {
+    if (!activeScenario) return null;
+    if (activeScenario.surfaceType === "agent_assist") return <AgentAssistHeadlessView seamOn={seamOn} scenario={activeScenario} stage={stage} onAdvance={advanceStage} />;
+    if (activeScenario.surfaceType === "self_service_portal") return <SelfServicePortalHeadlessView seamOn={seamOn} scenario={activeScenario} stage={stage} />;
+    if (activeScenario.surfaceType === "specialist_workspace") return <SpecialistWorkspaceHeadlessView seamOn={seamOn} scenario={activeScenario} stage={stage} />;
+    return null;
   };
 
   return (
@@ -1095,13 +1551,13 @@ const App = () => {
         <div>
           <div className="font-display italic text-2xl text-white" style={{ color: "var(--coral)" }}>Headless 360</div>
           <div className="text-xs uppercase tracking-widest" style={{ color: "var(--mute)", letterSpacing: "0.15em" }}>
-            Service · Three cases · One engine
+            One engine · Three surfaces
           </div>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
           {view === "picker" && (
-            <div className="text-xs italic" style={{ color: "var(--mute)" }}>Pick a scenario to start</div>
+            <div className="text-xs italic" style={{ color: "var(--mute)" }}>Pick a surface to start</div>
           )}
 
           {(view === "ootb" || view === "headless") && (
@@ -1113,7 +1569,7 @@ const App = () => {
                     view === "ootb" ? "bg-white text-black" : "text-white/60 hover:text-white"
                   }`}
                 >
-                  OOTB Service Cloud
+                  OOTB
                 </button>
                 <button
                   onClick={() => setView("headless")}
@@ -1122,7 +1578,7 @@ const App = () => {
                   }`}
                   style={view === "headless" ? { background: "var(--coral)" } : {}}
                 >
-                  Headless + Generative UI
+                  Headless + Composed Surface
                 </button>
               </div>
 
@@ -1170,68 +1626,53 @@ const App = () => {
             </button>
           )}
 
-          {(view === "ootb" || view === "headless" || view === "handover" || view === "summary") && (
+          {(view === "ootb" || view === "headless" || view === "summary") && (
             <button
               onClick={backToScenarios}
               className="px-3 py-1.5 text-xs font-medium rounded border text-white/70 hover:text-white"
               style={{ borderColor: "rgba(255,255,255,0.2)" }}
             >
-              ↺ Pick another
+              ↺ Pick another surface
             </button>
           )}
         </div>
       </div>
 
-      {view === "headless" && stage > 0 && activeScenario && (
+      {/* Surface label / context bar */}
+      {(view === "ootb" || view === "headless") && activeScenario && (
         <div
           className="px-8 py-2.5 text-xs flex items-center gap-4"
           style={{ background: "var(--navy-panel)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
         >
           <span style={{ color: "var(--coral)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>
-            {activeScenario.customerName} · Stage {stage} of 3
-          </span>
-          <span style={{ color: "var(--mute)" }}>{stageLabel(stage)}</span>
-          <span className="ml-auto text-xs italic" style={{ color: "var(--mute)" }}>
-            Click "Next stage" when you're ready to advance
-          </span>
-        </div>
-      )}
-
-      {view === "ootb" && activeScenario && (
-        <div
-          className="px-8 py-2.5 text-xs flex items-center gap-4"
-          style={{ background: "var(--navy-panel)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-        >
-          <span style={{ color: "var(--mute)", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500 }}>
-            {activeScenario.customerName} · OOTB view
+            {activeScenario.surfaceLabel} {view === "headless" && stage > 0 && `· Stage ${stage} of 3`}
           </span>
           <span style={{ color: "var(--mute)" }} className="italic">
-            The agent has all this data. They have to translate it into action themselves.
+            {view === "ootb" && `Audience: ${activeScenario.audience}. What they get out of the box.`}
+            {view === "headless" && stage > 0 && stageLabels(activeScenario, stage)}
+            {view === "headless" && stage === 0 && "Ready to compose this surface for " + activeScenario.audience.toLowerCase()}
           </span>
-          <span className="ml-auto text-xs italic" style={{ color: "var(--mute)" }}>
-            Switch to Headless when ready →
-          </span>
+          {view === "ootb" && (
+            <span className="ml-auto text-xs italic" style={{ color: "var(--mute)" }}>
+              Switch to Headless when ready →
+            </span>
+          )}
+          {view === "headless" && stage > 0 && stage < 3 && (
+            <span className="ml-auto text-xs italic" style={{ color: "var(--mute)" }}>
+              Click "Next stage" when you're ready
+            </span>
+          )}
         </div>
       )}
 
       <div className="flex-1 p-6">
         <div
-          className={`rounded-lg overflow-hidden shadow-2xl ${seamOn ? "seam-on" : ""}`}
+          className="rounded-lg overflow-hidden shadow-2xl"
           style={{ background: "white", minHeight: "calc(100vh - 220px)" }}
         >
           {view === "picker" && <ScenarioPicker onPick={pickScenario} />}
-          {view === "ootb" && activeScenario && <OOTBView seamOn={seamOn} scenario={activeScenario} />}
-          {view === "headless" && activeScenario && (
-            <HeadlessView
-              seamOn={seamOn}
-              scenario={activeScenario}
-              stage={stage}
-              onAdvance={(action) => action === "handover" && handleHandover()}
-            />
-          )}
-          {view === "handover" && activeScenario && (
-            <HandoverView scenario={activeScenario} onBack={() => setView("headless")} />
-          )}
+          {view === "ootb" && getOOTBComponent()}
+          {view === "headless" && getHeadlessComponent()}
           {view === "summary" && activeScenario && (
             <ScenarioSummaryView scenario={activeScenario} onContinue={backToScenarios} />
           )}
@@ -1245,11 +1686,11 @@ const App = () => {
         <div className="flex gap-6">
           {activeScenario ? (
             <span>
-              <span style={{ color: "var(--coral)", fontWeight: 500 }}>{activeScenario.customerName}</span>
-              {" · "}{activeScenario.headline}
+              <span style={{ color: "var(--coral)", fontWeight: 500 }}>{activeScenario.surfaceLabel}</span>
+              {" — "}{activeScenario.audience}
             </span>
           ) : (
-            <span>Three scenarios. Same engine. Different decisions.</span>
+            <span>One engine. Three surfaces. Different decisions.</span>
           )}
         </div>
         <div className="flex gap-3 italic">
